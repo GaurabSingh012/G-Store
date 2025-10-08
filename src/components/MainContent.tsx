@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useFilter } from "./FilterContext";
 import { LuTally3 } from "react-icons/lu";
 import BookCard from "./BookCard";
-import productsData from "../data/products.json"; // make sure path is correct
+import productsData from "../data/products.json";
 
 const MainContent = () => {
   const { 
+    appliedSearchQuery, // <-- Added appliedSearchQuery
     appliedSelectedCategory, 
     appliedMinPrice, 
     appliedMaxPrice, 
-    appliedKeyword,
+    appliedKeyword, // <-- Added appliedKeyword
     liveSearchQuery
   } = useFilter();
 
@@ -20,6 +21,8 @@ const MainContent = () => {
     price: number;
     rating: number;
     category: string;
+    // Assuming product data has a description or tags field for keyword filtering
+    description?: string; 
   };
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -28,33 +31,73 @@ const MainContent = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const itemsPerPage = 15;
 
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown if clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Load products from local JSON
   useEffect(() => {
-    setProducts(productsData);
+    // Assuming products.json has correct structure
+    setProducts(productsData as Product[]);
     setCurrentPage(1);
   }, []);
 
   const getFilteredProducts = () => {
     let filtered = products;
 
-    if (appliedSelectedCategory) {
-      filtered = filtered.filter(
-        (product) => product.category === appliedSelectedCategory
-      );
-    }
-    if (appliedMinPrice !== undefined) {
-      filtered = filtered.filter((product) => product.price >= appliedMinPrice);
-    }
-    if (appliedMaxPrice !== undefined) {
-      filtered = filtered.filter((product) => product.price <= appliedMaxPrice);
+    // 1. Applied Category Filter (from Sidebar radio buttons)
+    if (appliedSelectedCategory && appliedSelectedCategory.trim() !== "") {
+      const categoryFilter = appliedSelectedCategory.trim().toLowerCase();
+      filtered = filtered.filter(p => p.category.toLowerCase() === categoryFilter);
     }
 
-    if (liveSearchQuery) {
-      filtered = filtered.filter((product) =>
-        product.title.toLowerCase().includes(liveSearchQuery.toLowerCase())
+    // 2. Applied Price Range Filters
+    if (appliedMinPrice !== undefined && !isNaN(appliedMinPrice)) {
+      filtered = filtered.filter(p => p.price >= appliedMinPrice);
+    }
+
+    if (appliedMaxPrice !== undefined && !isNaN(appliedMaxPrice)) {
+      filtered = filtered.filter(p => p.price <= appliedMaxPrice);
+    }
+
+    // 3. Applied Search Query Filter (from main search bar, after 'Apply')
+    if (appliedSearchQuery && appliedSearchQuery.trim() !== "") {
+        const search = appliedSearchQuery.trim().toLowerCase();
+        filtered = filtered.filter(p =>
+            p.title.toLowerCase().includes(search) ||
+            p.category.toLowerCase().includes(search)
+        );
+    }
+
+    // 4. Applied Keyword Filter (from Sidebar keyword buttons, after 'Apply')
+    if (appliedKeyword && appliedKeyword.trim() !== "") {
+        const keyword = appliedKeyword.trim().toLowerCase();
+        filtered = filtered.filter(p =>
+            p.title.toLowerCase().includes(keyword) ||
+            p.category.toLowerCase().includes(keyword) ||
+            (p.description && p.description.toLowerCase().includes(keyword)) // Check description if available
+        );
+    }
+
+    // 5. Live Search Query (Instant Search - runs *on top of* applied filters)
+    if (liveSearchQuery && liveSearchQuery.trim() !== "") {
+      const search = liveSearchQuery.trim().toLowerCase();
+      filtered = filtered.filter(p =>
+        p.title.toLowerCase().includes(search) ||
+        p.category.toLowerCase().includes(search)
       );
     }
 
+    // 6. Sorting
     switch (filter) {
       case "expensive":
         return [...filtered].sort((a, b) => b.price - a.price);
@@ -70,7 +113,6 @@ const MainContent = () => {
   const filteredProducts = getFilteredProducts();
   const totalProducts = filteredProducts.length;
   const totalPages = Math.ceil(totalProducts / itemsPerPage);
-
   const paginatedProducts = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -83,6 +125,12 @@ const MainContent = () => {
     }
   };
 
+  // Reset page when filters change (using a derived state is simple for this)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [appliedSearchQuery, appliedSelectedCategory, appliedMinPrice, appliedMaxPrice, appliedKeyword, liveSearchQuery, filter]);
+
+
   return (
     <section className="w-full pt-[10px] max-w-7xl mx-auto px-4 pb-6 bg-transparent">
       {/* Filter/Sort Bar */}
@@ -91,7 +139,7 @@ const MainContent = () => {
           Showing <span className="font-semibold">{Math.min(totalProducts, currentPage * itemsPerPage)}</span> of <span className="font-semibold">{totalProducts}</span> results
         </p>
 
-        <div className="relative order-1 sm:order-2">
+        <div className="relative order-1 sm:order-2" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="border px-4 py-2 rounded-full flex items-center gap-2 text-sm bg-gray-50 hover:bg-gray-100 transition"
@@ -103,7 +151,7 @@ const MainContent = () => {
 
           {dropdownOpen && (
             <div className="absolute right-0 bg-white border rounded mt-2 w-40 z-10 shadow-xl">
-              {["All", "Cheap", "Expensive", "Popular"].map((option) => (
+              {["All", "Cheap", "Expensive", "Popular"].map(option => (
                 <button
                   key={option}
                   onClick={() => {
@@ -123,12 +171,12 @@ const MainContent = () => {
       {/* Product Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-8 sm:gap-6">
         {paginatedProducts.length > 0 ? (
-          paginatedProducts.map((product) => (
+          paginatedProducts.map(product => (
             <BookCard
               key={product.id}
               id={product.id}
               title={product.title}
-              image={product.image} // updated for local JSON
+              image={product.image}
               price={product.price}
               rating={product.rating}
             />
@@ -154,17 +202,13 @@ const MainContent = () => {
           <div className="flex gap-1 sm:gap-2 overflow-x-auto max-w-full">
             {[...Array(totalPages)].map((_, index) => {
               const page = index + 1;
-              if (totalPages > 7 && (page < currentPage - 2 || page > currentPage + 2) && page !== 1 && page !== totalPages) {
-                return null;
-              }
+              if (totalPages > 7 && (page < currentPage - 2 || page > currentPage + 2) && page !== 1 && page !== totalPages) return null;
               return (
                 <button
                   key={page}
                   onClick={() => handlePageChange(page)}
                   className={`px-3 py-1 rounded-full border text-sm flex-shrink-0 ${
-                    currentPage === page
-                      ? "bg-black text-white shadow-md"
-                      : "hover:bg-gray-200"
+                    currentPage === page ? "bg-black text-white shadow-md" : "hover:bg-gray-200"
                   }`}
                 >
                   {page}

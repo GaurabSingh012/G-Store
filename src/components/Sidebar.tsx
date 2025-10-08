@@ -1,28 +1,39 @@
 import React, { useEffect, useState } from "react";
 import { useFilter } from "./FilterContext";
 import { FaFilter, FaTimes } from "react-icons/fa";
-import products from "../data/products.json"; // Local JSON
+import products from "../data/products.json";
 
 const Sidebar = () => {
   const {
-    inputSelectedCategory, setInputSelectedCategory,
-    inputMinPrice, setInputMinPrice,
-    inputMaxPrice, setInputMaxPrice,
-    inputKeyword, setInputKeyword,
-    liveSearchQuery, setLiveSearchQuery,
+    inputSelectedCategory,
+    setInputSelectedCategory,
+    inputMinPrice,
+    setInputMinPrice,
+    inputMaxPrice,
+    setInputMaxPrice,
+    inputKeyword,
+    setInputKeyword,
+    liveSearchQuery,
+    setLiveSearchQuery,
     applyFilters,
     resetAllFilters,
   } = useFilter();
 
   const [categories, setCategories] = useState<string[]>([]);
   const [keywords] = useState<string[]>([
-    "apple", "watch", "fashion", "trend", "shoes", "shirt"
+    "apple",
+    "watch",
+    "fashion",
+    "trend",
+    "shoes",
+    "shirt",
   ]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Use local JSON to set categories
   useEffect(() => {
-    const uniqueCategories = Array.from(new Set(products.map(p => p.category)));
+    const uniqueCategories = Array.from(
+      new Set(products.map((p) => p.category))
+    ) as string[];
     setCategories(uniqueCategories);
   }, []);
 
@@ -44,6 +55,12 @@ const Sidebar = () => {
   };
 
   const handleReset = () => {
+    // Reset all filter states
+    setInputSelectedCategory("");
+    setInputMinPrice(undefined);
+    setInputMaxPrice(undefined);
+    setInputKeyword("");
+    setLiveSearchQuery("");
     resetAllFilters();
     setIsMenuOpen(false);
   };
@@ -110,15 +127,31 @@ const Sidebar = () => {
           <div>
             <h2 className="text-lg font-semibold mb-3">Categories</h2>
             <div className="space-y-1 max-h-60 overflow-y-auto pr-2">
+              <label className="flex items-center cursor-pointer text-sm">
+                <input
+                    type="radio"
+                    name="category"
+                    value=""
+                    checked={inputSelectedCategory === ""}
+                    onChange={() => handleCategoryChange("")}
+                    // FIX APPLIED: Uses accent-black for the checked state dot
+                    className="mr-2 w-4 h-4 border-gray-300 focus:ring-black accent-black"
+                />
+                All Categories
+              </label>
               {categories.map((cat, idx) => (
-                <label key={idx} className="flex items-center cursor-pointer text-sm">
+                <label
+                  key={idx}
+                  className="flex items-center cursor-pointer text-sm"
+                >
                   <input
                     type="radio"
                     name="category"
                     value={cat}
                     checked={inputSelectedCategory === cat}
                     onChange={() => handleCategoryChange(cat)}
-                    className="mr-2 w-4 h-4 text-black border-gray-300 focus:ring-black"
+                    // FIX APPLIED: Uses accent-black for the checked state dot
+                    className="mr-2 w-4 h-4 border-gray-300 focus:ring-black accent-black"
                   />
                   {cat.charAt(0).toUpperCase() + cat.slice(1)}
                 </label>
@@ -157,7 +190,7 @@ const Sidebar = () => {
             onClick={handleReset}
             className="w-full py-2 bg-gray-200 text-gray-800 rounded mt-2 hover:bg-gray-300"
           >
-            Reset
+            Reset Filters
           </button>
         </section>
       </aside>
